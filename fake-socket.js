@@ -1,6 +1,6 @@
 // Socket for vesc-dash (Spoofer)
 
-const frequency = 50; //ms between data emits
+const frequency = 20; //ms between data emits
 
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
@@ -69,9 +69,8 @@ function canHandler(socket) {
         "ids": "14 15 16 0 27",
         "mph": mph(((i*100 % 40000)-10000)/config['motor']['poles']),
         "odometer": miles((i*100 % 1000000)/config['motor']['poles']),
-        "motor_voltage": i%58,
+        "motor_voltage": i/2%58,
     }
-    console.log('data sent')
     socket.emit('data', data)
     i = i +1;
 }

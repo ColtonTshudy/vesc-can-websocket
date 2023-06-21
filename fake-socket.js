@@ -2,6 +2,7 @@
 
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
+const config = require('./config.json')
 
 // Data struct
 let data = {
@@ -28,20 +29,24 @@ let data = {
 // Socket connect
 io.on('connection', (socket) => {
     console.log(`${socket.id} connected`)
+    let intervalID
 
     // Socket subscribes to CAN updates
     socket.on('subscribeToCAN', () => {
         console.log(`${socket.id} connected to can`)
-        setInterval(canHandler, 1000, socket)
+        socket.emit('config', config)
+        intervalID = setInterval(canHandler, 1000, socket)
     })
 
     // Socket disconnect
     socket.on('disconnect', (reason) => {
         console.log(`${socket.id} disconnected (${reason})`)
+        clearInterval(intervalID)
     })
 })
 
 // CAN message handler
 function canHandler(socket) {
-    console.log('test')
+    console.log('data sent')
+    socket.emit('data', data)
 }

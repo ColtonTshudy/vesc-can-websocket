@@ -1,0 +1,25 @@
+{
+    "motor": {
+        "poles": 7,
+        "teeth": 9,
+        "rear_teeth": 50,
+        "wheel_dia_in": 17,
+        "max_temp_c": 90,
+        "kv": 130,
+        "max_amps": 150
+    },
+    "controller": {
+        "max_temp": 90,
+        "max_amps_out": 200,
+        "max_amps_in": 200,
+        "max_voltage": 100
+    },
+    "battery": {
+        "max_voltage": 58.8,
+        "max_amps": 80,
+        "capacity_ah": 16
+    },
+    "dash": {
+        "max_speed": 50
+    }
+}

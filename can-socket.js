@@ -1,9 +1,9 @@
 // Socket for vesc-dash (CAN)
 
+const can = require('socketcan')
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
-
-const can = require('socketcan')
+const config = require('./config.json')
 
 // VESC CAN message IDs
 const p1Addr = 0x009 << 8
@@ -47,7 +47,7 @@ io.on('connection', (socket) => {
 canHandler = (socket) => {
     console.log('test')
 
-    const channel = can.createRawChannel('vcan0');
+    const channel = can.createRawChannel('can0');
     channel.addListener('onMessage', (msg) => {
         const id = msg['id']
         const buf = msg['data']
@@ -59,15 +59,33 @@ canHandler = (socket) => {
 
         switch (id) {
             case p1Addr:
+                data['erpm'] = signed32((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
+                data['rpm'] = data['erpm']/config['motor']['poles']
+                data['motor_current'] = signed16((buf[4] << 8) + buf[5])/10
+                data['duty_cycle'] = signed16((buf[6] << 8) + buf[7])/1000
+                data['mph'] = mph(data['rpm'])
+                data['motor_voltage'] = data['rpm']/config['motor']['kv']
+                socket.emit('data', data)
                 break;
             case p2Addr:
+                data['ah_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])/10000
+                data['ah_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7])/10000
                 break;
             case p3Addr:
+                data['wh_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])/10000
+                data['wh_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7])/10000
                 break;
             case p4Addr:
+                data['mos_temp'] = signed16((buf[0] << 8) + buf[1])/10
+                data['mot_temp'] = signed16((buf[2] << 8) + buf[3])/10
+                data['battery_current'] = signed16((buf[4] << 8) + buf[5])/10
+                data['pid_position'] = ((buf[6] << 8) + buf[7])
                 break;
             case p5Addr:
-                socket.emit('data', data)
+                tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
+                data['tachometer'] = tachometer_erpm/config['motor']['poles']
+                data['battery_voltage'] = ((buf[4] << 8) + buf[5])/10
+                data['odometer'] = miles(data['tachometer'])
                 break;
             default:
                 break;

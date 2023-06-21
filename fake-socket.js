@@ -1,6 +1,6 @@
 // Socket for vesc-dash (Spoofer)
 
-const frequency = 20; //ms between data emits
+const frequency = 50; //ms between data emits
 
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })

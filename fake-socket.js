@@ -1,5 +1,7 @@
 // Socket for vesc-dash (Spoofer)
 
+const frequency = 5; //ms between data emits
+
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
@@ -30,12 +32,13 @@ let data = {
 io.on('connection', (socket) => {
     console.log(`${socket.id} connected`)
     let intervalID
+    let i = 0;
 
     // Socket subscribes to CAN updates
     socket.on('subscribeToCAN', () => {
         console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
-        intervalID = setInterval(canHandler, 1000, socket)
+        intervalID = setInterval(canHandler, frequency, socket, i)
     })
 
     // Socket disconnect
@@ -46,7 +49,40 @@ io.on('connection', (socket) => {
 })
 
 // CAN message handler
-function canHandler(socket) {
+function canHandler(socket, i) {
+    data = {
+        "erpm": (i*100 % 40000)-10000,
+        "rpm": ((i*100 % 40000)-10000)/config['motor']['poles'],
+        "motor_current": i % 300-150,
+        "duty_cycle": i/100 % 2 - 1,
+        "ah_consumed": i/500 % 16,
+        "ah_regen": i/2000 % 16,
+        "wh_consumed": i/2 % 800,
+        "wh_regen": i/50 % 800,
+        "mos_temp": (i/5+30) % 80,
+        "mot_temp": (i/5+20) % 80,
+        "battery_current": i % 80,
+        "pid_position": i % 50000,
+        "tachometer": (i*100 % 1000000)/config['motor']['poles'],
+        "battery_voltage": 58-(i/20) % (58-40),
+        "ids": "14 15 16 0 27",
+        "mph": mph(((i*100 % 40000)-10000)/config['motor']['poles']),
+        "odometer": miles((i*100 % 1000000)/config['motor']['poles']),
+        "motor_voltage": i%58,
+    }
     console.log('data sent')
     socket.emit('data', data)
+    i++;
+}
+
+const mph = (rpm) => {
+    const mph = miles(rpm) * 60
+    return mph
+}
+
+const miles = (rotations) => {
+    const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
+    const wheel_dia = config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
+    const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
+    return miles
 }

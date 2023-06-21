@@ -125,8 +125,8 @@ const mph = (rpm) => {
 }
 
 const miles = (rotations) => {
-    const ratio = config['motor']['teeth'] / self.config['motor']['rear_teeth']  // gear ratio
-    const wheel_dia = self.config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
+    const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
+    const wheel_dia = config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
     const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
     return miles
 }

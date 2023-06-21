@@ -34,12 +34,22 @@ let data = {
     'motor_voltage': 0,
 }
 
-// Socket setup
+// Socket connect
 io.on('connection', (socket) => {
     console.log(`${socket.id} connected`)
+    let intervalID
+
+    // Socket subscribes to CAN updates
     socket.on('subscribeToCAN', () => {
-        console.log('client connected to can')
-        canHandler(socket)
+        console.log(`${socket.id} connected to can`)
+        socket.emit('config', config)
+        intervalID = setInterval(canHandler, 1000, socket)
+    })
+
+    // Socket disconnect
+    socket.on('disconnect', (reason) => {
+        console.log(`${socket.id} disconnected (${reason})`)
+        clearInterval(intervalID)
     })
 })
 
@@ -60,35 +70,63 @@ canHandler = (socket) => {
         switch (id) {
             case p1Addr:
                 data['erpm'] = signed32((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
-                data['rpm'] = data['erpm']/config['motor']['poles']
-                data['motor_current'] = signed16((buf[4] << 8) + buf[5])/10
-                data['duty_cycle'] = signed16((buf[6] << 8) + buf[7])/1000
+                data['rpm'] = data['erpm'] / config['motor']['poles']
+                data['motor_current'] = signed16((buf[4] << 8) + buf[5]) / 10
+                data['duty_cycle'] = signed16((buf[6] << 8) + buf[7]) / 1000
                 data['mph'] = mph(data['rpm'])
-                data['motor_voltage'] = data['rpm']/config['motor']['kv']
+                data['motor_voltage'] = data['rpm'] / config['motor']['kv']
                 socket.emit('data', data)
                 break;
             case p2Addr:
-                data['ah_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])/10000
-                data['ah_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7])/10000
+                data['ah_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3]) / 10000
+                data['ah_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7]) / 10000
                 break;
             case p3Addr:
-                data['wh_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])/10000
-                data['wh_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7])/10000
+                data['wh_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3]) / 10000
+                data['wh_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7]) / 10000
                 break;
             case p4Addr:
-                data['mos_temp'] = signed16((buf[0] << 8) + buf[1])/10
-                data['mot_temp'] = signed16((buf[2] << 8) + buf[3])/10
-                data['battery_current'] = signed16((buf[4] << 8) + buf[5])/10
+                data['mos_temp'] = signed16((buf[0] << 8) + buf[1]) / 10
+                data['mot_temp'] = signed16((buf[2] << 8) + buf[3]) / 10
+                data['battery_current'] = signed16((buf[4] << 8) + buf[5]) / 10
                 data['pid_position'] = ((buf[6] << 8) + buf[7])
                 break;
             case p5Addr:
                 tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
-                data['tachometer'] = tachometer_erpm/config['motor']['poles']
-                data['battery_voltage'] = ((buf[4] << 8) + buf[5])/10
+                data['tachometer'] = tachometer_erpm / config['motor']['poles']
+                data['battery_voltage'] = ((buf[4] << 8) + buf[5]) / 10
                 data['odometer'] = miles(data['tachometer'])
                 break;
             default:
                 break;
         }
     })
+}
+
+// Turn a 16 bit unsigned integer into a signed integer
+const signed16 = (int_16) => {
+    let int_16_s = int_16
+    if (int_16 > 32767)
+        int_16_s = -((int_16 - 1) ^ 0b1111111111111111)
+    return int_16_s
+}
+
+// Turn a 32 bit unsigned integer into a signed integer
+const signed32 = (int_32) => {
+    let int_32_s = int_32
+    if (int_32 > 2147483647)
+        int_32_s = -((int_32 - 1) ^ 0b11111111111111111111111111111111)
+    return int_32_s
+}
+
+const mph = (rpm) => {
+    const mph = miles(rpm) * 60
+    return mph
+}
+
+const miles = (rotations) => {
+    const ratio = config['motor']['teeth'] / self.config['motor']['rear_teeth']  // gear ratio
+    const wheel_dia = self.config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
+    const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
+    return miles
 }

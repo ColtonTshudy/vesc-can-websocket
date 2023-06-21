@@ -1,6 +1,6 @@
 // Socket for vesc-dash (Spoofer)
 
-const frequency = 5; //ms between data emits
+const frequency = 50; //ms between data emits
 
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
@@ -32,13 +32,12 @@ let data = {
 io.on('connection', (socket) => {
     console.log(`${socket.id} connected`)
     let intervalID
-    let i = 0;
 
     // Socket subscribes to CAN updates
     socket.on('subscribeToCAN', () => {
         console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
-        intervalID = setInterval(canHandler, frequency, socket, i)
+        intervalID = setInterval(canHandler, frequency, socket)
     })
 
     // Socket disconnect
@@ -48,8 +47,10 @@ io.on('connection', (socket) => {
     })
 })
 
+let i = 0;
+
 // CAN message handler
-function canHandler(socket, i) {
+function canHandler(socket) {
     data = {
         "erpm": (i*100 % 40000)-10000,
         "rpm": ((i*100 % 40000)-10000)/config['motor']['poles'],
@@ -72,7 +73,7 @@ function canHandler(socket, i) {
     }
     console.log('data sent')
     socket.emit('data', data)
-    i++;
+    i = i +1;
 }
 
 const mph = (rpm) => {
@@ -82,7 +83,7 @@ const mph = (rpm) => {
 
 const miles = (rotations) => {
     const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
-    const wheel_dia = config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
+    const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
     const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
     return miles
 }

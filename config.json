@@ -4,12 +4,13 @@
         "teeth": 9,
         "rear_teeth": 50,
         "wheel_dia_in": 17,
-        "max_temp_c": 90,
+        "warn_temp": 70,
         "kv": 130,
-        "max_amps": 150
+        "max_amps": 150,
+        "max_rpm": 8000
     },
     "controller": {
-        "max_temp": 90,
+        "warn_temp": 70,
         "max_amps_out": 200,
         "max_amps_in": 200,
         "max_voltage": 100

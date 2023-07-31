@@ -62,7 +62,7 @@ function canHandler(socket) {
         "wh_regen": i/50 % 800,
         "mos_temp": (i/5+30) % 80,
         "mot_temp": (i/5+20) % 80,
-        "battery_current": i % 80,
+        "battery_current": i % 160-80,
         "pid_position": i % 50000,
         "tachometer": (i*100 % 1000000)/config['motor']['poles'],
         "battery_voltage": 58-(i/20) % (58-40),

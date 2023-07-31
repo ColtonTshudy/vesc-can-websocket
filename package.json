@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "socket.io": "^4.6.2"
+    "socket.io": "^4.6.2",
+    "socketcan": "^4.0.3"
   }
 }

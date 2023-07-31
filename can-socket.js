@@ -1,6 +1,6 @@
 // Socket for vesc-dash (CAN)
 
-const can = require('socketcan')
+var can = require('socketcan');
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
@@ -36,35 +36,34 @@ let data = {
 
 // Socket connect
 io.on('connection', (socket) => {
-    console.log(`${socket.id} connected`)
-    let intervalID
+    // console.log(`${socket.id} connected`)
 
     // Socket subscribes to CAN updates
     socket.on('subscribeToCAN', () => {
-        console.log(`${socket.id} connected to can`)
+        // console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
-        intervalID = setInterval(canHandler, 1000, socket)
+        canHandler(socket)
     })
 
     // Socket disconnect
     socket.on('disconnect', (reason) => {
-        console.log(`${socket.id} disconnected (${reason})`)
-        clearInterval(intervalID)
+        // console.log(`${socket.id} disconnected (${reason})`)
     })
 })
 
 // CAN message handler
 canHandler = (socket) => {
-    console.log('test')
+    // console.log('handling can')
 
-    const channel = can.createRawChannel('can0');
+    var channel = can.createRawChannel('can0', true);
+
     channel.addListener('onMessage', (msg) => {
         const id = msg['id']
         const buf = msg['data']
 
         // Add ID to list of active IDs
-        if (!data['id'].includes(`${id}`)) {
-            data['id'] = data['id'] + `${id} `
+        if (!data['ids'].includes(`${id}`)) {
+            data['ids'] = data['ids'] + `${id} `
         }
 
         switch (id) {
@@ -101,6 +100,7 @@ canHandler = (socket) => {
                 break;
         }
     })
+    channel.start()
 }
 
 // Turn a 16 bit unsigned integer into a signed integer
@@ -126,7 +126,7 @@ const mph = (rpm) => {
 
 const miles = (rotations) => {
     const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
-    const wheel_dia = config['motor']['rear_dia_in'] * Math.PI  // inch diameter of wheel
+    const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
     const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
     return miles
 }

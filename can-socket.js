@@ -5,6 +5,11 @@ const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
 
+let timeoutID
+
+// CAN message cycle time (mult by 0.75)
+const CYC_T = 75
+
 // VESC CAN message IDs
 const p1Addr = 0x009 << 8
 const p2Addr = 0x00e << 8
@@ -42,12 +47,14 @@ io.on('connection', (socket) => {
     socket.on('subscribeToCAN', () => {
         // console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
+        timeoutID = setTimeout(emitData, 75, socket)
         canHandler(socket)
     })
 
     // Socket disconnect
     socket.on('disconnect', (reason) => {
         // console.log(`${socket.id} disconnected (${reason})`)
+        timeoutID = null
     })
 })
 
@@ -74,27 +81,31 @@ canHandler = (socket) => {
                 data['duty_cycle'] = signed16((buf[6] << 8) + buf[7]) / 1000
                 data['mph'] = mph(data['rpm'])
                 data['motor_voltage'] = data['rpm'] / config['motor']['kv']
-                socket.emit('data', data)
+                clearTimeout(timeoutID)
                 break;
             case p2Addr:
                 data['ah_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3]) / 10000
                 data['ah_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7]) / 10000
+                clearTimeout(timeoutID)
                 break;
             case p3Addr:
                 data['wh_consumed'] = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3]) / 10000
                 data['wh_regen'] = ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) + buf[7]) / 10000
+                clearTimeout(timeoutID)
                 break;
             case p4Addr:
                 data['mos_temp'] = signed16((buf[0] << 8) + buf[1]) / 10
                 data['mot_temp'] = signed16((buf[2] << 8) + buf[3]) / 10
                 data['battery_current'] = signed16((buf[4] << 8) + buf[5]) / 10
                 data['pid_position'] = ((buf[6] << 8) + buf[7])
+                clearTimeout(timeoutID)
                 break;
             case p5Addr:
                 tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
                 data['tachometer'] = tachometer_erpm / config['motor']['poles']
                 data['battery_voltage'] = ((buf[4] << 8) + buf[5]) / 10
                 data['odometer'] = miles(data['tachometer'])
+                clearTimeout(timeoutID)
                 break;
             default:
                 break;
@@ -119,14 +130,23 @@ const signed32 = (int_32) => {
     return int_32_s
 }
 
+// Convert rpm to mph
 const mph = (rpm) => {
     const mph = miles(rpm) * 60
     return mph
 }
 
+// Convert a number of rotations to miles
 const miles = (rotations) => {
     const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
     const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
     const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
     return miles
+}
+
+// Emit data. Attached to a timeout to send after all CAN data has been recieved.
+const emitData = (socket) => {
+    for (const key in data){
+        socket.emit(key, data[key])
+    }
 }

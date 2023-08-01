@@ -71,8 +71,8 @@ function canHandler(socket) {
         "odometer": miles((i*100 % 1000000)/config['motor']['poles']),
         "motor_voltage": i/2%58,
     }
-    socket.emit('data', data)
-    i = i +2;
+    emitData(socket)
+    i = i +1;
 }
 
 const mph = (rpm) => {
@@ -85,4 +85,11 @@ const miles = (rotations) => {
     const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
     const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
     return miles
+}
+
+// Emit data. Attached to a timeout to send after all CAN data has been recieved.
+const emitData = (socket) => {
+    for (const key in data){
+        socket.emit(key, data[key])
+    }
 }

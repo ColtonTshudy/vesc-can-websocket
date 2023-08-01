@@ -71,7 +71,6 @@ function canHandler(socket) {
         "odometer": miles((i*100 % 1000000)/config['motor']['poles']),
         "motor_voltage": i/2%58,
     }
-    data['soc'] = (config['battery']['capacity_ah']-data['ah_consumed'])/config['battery']['capacity_ah']
     socket.emit('data', data)
     i = i +2;
 }

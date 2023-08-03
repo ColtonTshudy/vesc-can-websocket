@@ -13,7 +13,8 @@
         "warn_temp": 70,
         "max_amps_out": 200,
         "max_amps_in": 200,
-        "max_voltage": 100
+        "max_voltage": 100,
+	"max_power_kw": 10
     },
     "battery": {
         "max_voltage": 58.8,
@@ -21,6 +22,6 @@
         "capacity_ah": 16
     },
     "dash": {
-        "max_speed": 100
+        "max_speed": 50
     }
 }

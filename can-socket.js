@@ -28,7 +28,7 @@ let data = {
     'pid_position': 0,
     'tachometer': 0,
     'battery_voltage': 0,
-    'ids': '',
+    'ids': [],
     'mph': 0,
     'odometer': 0,
     'motor_voltage': 0,
@@ -63,7 +63,7 @@ canHandler = (socket) => {
 
         // Add ID to list of active IDs
         if (!data['ids'].includes(id)) {
-            data['ids'] = data['ids'].push(id)
+            data['ids'].push(id)
         }
 
         switch (id) {

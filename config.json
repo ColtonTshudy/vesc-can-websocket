@@ -21,6 +21,6 @@
         "capacity_ah": 16
     },
     "dash": {
-        "max_speed": 100
+        "max_speed": 50
     }
 }

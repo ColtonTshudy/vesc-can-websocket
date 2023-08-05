@@ -62,8 +62,8 @@ canHandler = (socket) => {
         const buf = msg['data']
 
         // Add ID to list of active IDs
-        if (!data['ids'].includes(`${id}`)) {
-            data['ids'] = data['ids'] + `${id} `
+        if (!data['ids'].includes(id)) {
+            data['ids'] = data['ids'].push(id)
         }
 
         switch (id) {

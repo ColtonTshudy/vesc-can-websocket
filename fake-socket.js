@@ -73,7 +73,7 @@ function canHandler(socket) {
         "motor_voltage": i/2%58,
     }
     socket.emit('data', data)
-    i = i + increment ;
+    i = i + increment;
 }
 
 const mph = (rpm) => {

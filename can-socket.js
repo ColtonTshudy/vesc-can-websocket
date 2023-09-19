@@ -166,7 +166,7 @@ const miles = (rotations) => {
 // Save data
 function saveData() {
     if (flags.first_read) {
-        fs.readFile('ah_comsumed.txt', (err, buf) => {
+        fs.readFile('ah_consumed.txt', (err, buf) => {
             data.used_ah = parseFloat(buf.toString())
             flags.first_read = 0
         })
@@ -174,14 +174,14 @@ function saveData() {
     else if (flags.check_charged === 1) {
         if (data.battery_voltage > config.battery.max_voltage - threshold_voltage) {
             data.used_ah = 0
-            fs.writeFile('ah_comsumed.txt', "0", (err) => {
+            fs.writeFile('ah_consumed.txt', "0", (err) => {
             })
         }
         flags.check_charged = 2
     }
     else {
         data.used_ah = data.used_ah + data.ah_consumed - data.ah_regen
-        fs.writeFile('ah_comsumed.txt', `${data.used_ah}`, (err) => {
+        fs.writeFile('ah_consumed.txt', `${data.used_ah}`, (err) => {
         })
     }
 }

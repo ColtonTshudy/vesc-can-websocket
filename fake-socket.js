@@ -6,6 +6,12 @@ const increment = 6; //data increment step
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
+const fs = require('fs')
+
+let flags = {
+    "first_read": 1,
+    "check_charged": 1
+}
 
 // Data struct
 let data = {
@@ -27,6 +33,12 @@ let data = {
     'mph': 0,
     'odometer': 0,
     'motor_voltage': 0,
+    'avg_mph': 0,
+    'max_mph': 0,
+    'avg_power': 0,
+    'max_power': 0,
+    'total_msgs': 1,
+    'used_ah': 0
 }
 
 // Socket connect
@@ -39,6 +51,7 @@ io.on('connection', (socket) => {
         console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
         intervalID = setInterval(canHandler, frequency, socket)
+        saveDataInterval = setInterval(saveData, 1000)
     })
 
     // Socket disconnect
@@ -50,30 +63,60 @@ io.on('connection', (socket) => {
 
 let i = 0;
 
+// Save data
+function saveData() {
+    if (flags.first_read) {
+        fs.readFile('ah_comsumed.txt', (err, buf) => {
+            data.used_ah = parseFloat(buf.toString())
+            flags.first_read = 0
+        })
+    }
+    else if (flags.check_charged === 1) {
+        if (data.battery_voltage > config.battery.max_voltage - 0.5) {
+            data.used_ah = 0
+            fs.writeFile('ah_comsumed.txt', "0", (err) => {
+            })
+        }
+        flags.check_charged = 2
+    }
+    else {
+        data.used_ah = data.used_ah + data.ah_consumed - data.ah_regen
+        fs.writeFile('ah_comsumed.txt', `${data.used_ah}`, (err) => {
+        })
+    }
+}
+
+
 // CAN message handler
 function canHandler(socket) {
-    data = {
-        "erpm": (i*100 % 40000)-10000,
-        "rpm": ((i*100 % 40000)-10000)/config['motor']['poles'],
-        "motor_current": i % 300-150,
-        "duty_cycle": i/100 % 2 - 1,
-        "ah_consumed": i/500 % 16,
-        "ah_regen": i/2000 % 16,
-        "wh_consumed": i/2 % 800,
-        "wh_regen": i/50 % 800,
-        "mos_temp": (i/5+30) % 80,
-        "mot_temp": (i/5+20) % 80,
-        "battery_current": i % 160-80,
-        "pid_position": i % 50000,
-        "tachometer": (i*100 % 1000000)/config['motor']['poles'],
-        "battery_voltage": 58-(i/20) % (58-40),
-        "ids": [14, 15, 16, 0, 27],
-        "mph": mph(((i*200 % 60000)-30000)/config['motor']['poles']),
-        "odometer": miles((i*100 % 1000000)/config['motor']['poles']),
-        "motor_voltage": i/2%58,
-    }
+    data["total_msgs"] = data["total_msgs"] + 1
+    data["erpm"] = (i * 100 % 40000) - 10000
+    data["rpm"] = ((i * 100 % 40000) - 10000) / config['motor']['poles']
+    data["motor_current"] = i % 300 - 150
+    data["duty_cycle"] = i / 100 % 2 - 1
+    data["ah_consumed"] = i / 500 % 16
+    data["ah_regen"] = i / 2000 % 16
+    data["wh_consumed"] = i / 2 % 800
+    data["wh_regen"] = i / 50 % 800
+    data["mos_temp"] = (i / 5 + 30) % 80
+    data["mot_temp"] = (i / 5 + 20) % 80
+    data["battery_current"] = i % 160 - 80
+    data["pid_position"] = i % 50000
+    data["tachometer"] = (i * 100 % 1000000) / config['motor']['poles']
+    data["battery_voltage"] = 58 - (i / 20) % (58 - 40)
+    data["ids"] = [14, 15, 16, 0, 27]
+    data["mph"] = mph(((i * 200 % 60000) - 30000) / config['motor']['poles'])
+    data["odometer"] = miles((i * 100 % 1000000) / config['motor']['poles'])
+    data["motor_voltage"] = i / 2 % 58
+    data["max_power"] = data["battery_current"] * data["battery_voltage"] > data["max_power"] ? data["battery_current"] * data["battery_voltage"] : data["max_power"]
+    data["avg_power"] = (data["avg_power"] + data["battery_current"] * data["battery_voltage"]) / data["total_msgs"]
+    data["max_mph"] = data["mph"] > data["max_mph"] ? data["mph"] : data["max_mph"]
+    data["avg_mph"] = (data["avg_mph"] + data["mph"]) / data["total_msgs"]
     socket.emit('data', data)
     i = i + increment;
+
+    if (flags.check_charged === 0)
+        flags.check_charged = 1
 }
 
 const mph = (rpm) => {
@@ -83,7 +126,7 @@ const mph = (rpm) => {
 
 const miles = (rotations) => {
     const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
-    const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
-    const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
+    const wheel_circum = config['motor']['wheel_dia_in'] * Math.PI  // inch circumference of wheel
+    const miles = rotations * ratio * wheel_circum / 63360  // total miles of rotations
     return miles
 }

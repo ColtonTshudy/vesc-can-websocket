@@ -4,6 +4,15 @@ var can = require('socketcan');
 const { Server } = require('socket.io')
 const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
+const fs = require('fs')
+
+let flags = {
+    "first_read": 1,
+    "check_charged": 1
+}
+
+// Update time for battery capacity
+const capacity_time = 1000; //ms
 
 // VESC CAN message IDs
 const p1Addr = 0x009 << 8
@@ -32,6 +41,12 @@ let data = {
     'mph': 0,
     'odometer': 0,
     'motor_voltage': 0,
+    'avg_mph': 0,
+    'max_mph': 0,
+    'avg_power': 0,
+    'max_power': 0,
+    'total_msgs': 1,
+    'used_ah': 0
 }
 
 // Socket connect
@@ -42,6 +57,7 @@ io.on('connection', (socket) => {
     socket.on('subscribeToCAN', () => {
         // console.log(`${socket.id} connected to can`)
         socket.emit('config', config)
+        saveDataInterval = setInterval(saveData, capacity_time)
         canHandler(socket)
     })
 
@@ -68,6 +84,8 @@ canHandler = (socket) => {
 
         switch (id) {
             case p1Addr:
+                data["total_msgs"] = data["total_msgs"] + 1
+
                 data['erpm'] = signed32((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
                 data['rpm'] = data['erpm'] / config['motor']['poles']
                 data['motor_current'] = signed16((buf[4] << 8) + buf[5]) / 10
@@ -92,9 +110,18 @@ canHandler = (socket) => {
                 break;
             case p5Addr:
                 tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
-                data['tachometer'] = tachometer_erpm / config['motor']['poles']
+                data['tachometer'] = tachometer_erpm / (config['motor']['poles']*2) //not sure why /2 is needed but it is
                 data['battery_voltage'] = ((buf[4] << 8) + buf[5]) / 10
                 data['odometer'] = miles(data['tachometer'])
+
+                data["max_power"] = data["battery_current"] * data["battery_voltage"] > data["max_power"] ? data["battery_current"] * data["battery_voltage"] : data["max_power"]
+                data["avg_power"] = (data["avg_power"] + data["battery_current"] * data["battery_voltage"]) / data["total_msgs"]
+                data["max_mph"] = data["mph"] > data["max_mph"] ? data["mph"] : data["max_mph"]
+                data["avg_mph"] = (data["avg_mph"] + data["mph"]) / data["total_msgs"]
+
+                // Tell the code that we're ready to check if we need to reset capacity
+                if (flags.check_charged === 0)
+                    flags.check_charged = 1
                 break;
             default:
                 break;
@@ -128,7 +155,30 @@ const mph = (rpm) => {
 // Convert a number of rotations to miles
 const miles = (rotations) => {
     const ratio = config['motor']['teeth'] / config['motor']['rear_teeth']  // gear ratio
-    const wheel_dia = config['motor']['wheel_dia_in'] * Math.PI  // inch diameter of wheel
-    const miles = rotations * ratio * wheel_dia / 63360  // total miles of rotations
+    const wheel_circum = config['motor']['wheel_dia_in'] * Math.PI  // inch circumference of wheel
+    const miles = rotations * ratio * wheel_circum / 63360  // total miles of rotations
     return miles
+}
+
+// Save data
+function saveData() {
+    if (flags.first_read) {
+        fs.readFile('ah_comsumed.txt', (err, buf) => {
+            data.used_ah = parseFloat(buf.toString())
+            flags.first_read = 0
+        })
+    }
+    else if (flags.check_charged === 1) {
+        if (data.battery_voltage > config.battery.max_voltage - 0.5) {
+            data.used_ah = 0
+            fs.writeFile('ah_comsumed.txt', "0", (err) => {
+            })
+        }
+        flags.check_charged = 2
+    }
+    else {
+        data.used_ah = data.used_ah + data.ah_consumed - data.ah_regen
+        fs.writeFile('ah_comsumed.txt', `${data.used_ah}`, (err) => {
+        })
+    }
 }

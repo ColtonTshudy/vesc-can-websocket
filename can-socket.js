@@ -8,11 +8,14 @@ const fs = require('fs')
 
 let flags = {
     "first_read": 1,
-    "check_charged": 1
+    "check_charged": 0
 }
 
 // Update time for battery capacity
 const capacity_time = 1000; //ms
+
+// Threshold under max voltage to reset capacity
+const threshold_voltage = 1.5 //V under max
 
 // VESC CAN message IDs
 const p1Addr = 0x009 << 8
@@ -169,7 +172,7 @@ function saveData() {
         })
     }
     else if (flags.check_charged === 1) {
-        if (data.battery_voltage > config.battery.max_voltage - 0.5) {
+        if (data.battery_voltage > config.battery.max_voltage - threshold_voltage) {
             data.used_ah = 0
             fs.writeFile('ah_comsumed.txt', "0", (err) => {
             })

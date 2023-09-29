@@ -6,6 +6,9 @@ const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
 const fs = require('fs')
 
+// Initial capacity of the battery as read from the historical data logs
+let capacityStamp = 0
+
 let flags = {
     "first_read": 1,
     "check_charged": 0
@@ -113,7 +116,7 @@ canHandler = (socket) => {
                 break;
             case p5Addr:
                 tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
-                data['tachometer'] = tachometer_erpm / (config['motor']['poles']*2) //not sure why /2 is needed but it is
+                data['tachometer'] = tachometer_erpm / (config['motor']['poles'] * 2) //not sure why /2 is needed but it is
                 data['battery_voltage'] = ((buf[4] << 8) + buf[5]) / 10
                 data['odometer'] = miles(data['tachometer'])
 
@@ -163,25 +166,32 @@ const miles = (rotations) => {
     return miles
 }
 
-// Save data
+// Save capacity data
 function saveData() {
-    if (flags.first_read) {
-        fs.readFile('ah_consumed.txt', (err, buf) => {
-            data.used_ah = parseFloat(buf.toString())
-            flags.first_read = 0
-        })
-    }
-    else if (flags.check_charged === 1) {
-        if (data.battery_voltage > config.battery.max_voltage - threshold_voltage) {
-            data.used_ah = 0
-            fs.writeFile('ah_consumed.txt', "0", (err) => {
+    try {
+        if (flags.first_read) {
+            fs.readFile('ah_consumed.txt', (err, buf) => {
+                try {
+                    capacityStamp = parseFloat(buf.toString())
+                }
+                catch { }
+                flags.first_read = 0
             })
         }
-        flags.check_charged = 2
+        else if (flags.check_charged === 1) {
+            if (data.battery_voltage > config.battery.max_voltage - 0.5) {
+                capacityStamp = 0
+            }
+            flags.check_charged = 2
+        }
+        else {
+            data.used_ah = capacityStamp + data.ah_consumed - data.ah_regen
+            fs.writeFile('ah_consumed.txt', `${data.used_ah}`, (err) => {
+            })
+        }
     }
-    else {
-        data.used_ah = data.used_ah + data.ah_consumed - data.ah_regen
-        fs.writeFile('ah_consumed.txt', `${data.used_ah}`, (err) => {
-        })
+    catch {
+        capacityStamp = 0
+        flags.first_read = 0
     }
 }

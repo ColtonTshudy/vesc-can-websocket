@@ -8,6 +8,9 @@ const io = new Server(5002, { cors: { origin: '*' } })
 const config = require('./config.json')
 const fs = require('fs')
 
+// Initial capacity of the battery as read from the historical data logs
+let capacityStamp = 0
+
 let flags = {
     "first_read": 1,
     "check_charged": 1
@@ -54,6 +57,12 @@ io.on('connection', (socket) => {
         saveDataInterval = setInterval(saveData, 1000)
     })
 
+    // Client requests battery capacity reset
+    socket.on('resetBatteryCapacity', () => {
+        capacityStamp = 0;
+        console.log('test')
+    })
+
     // Socket disconnect
     socket.on('disconnect', (reason) => {
         console.log(`${socket.id} disconnected (${reason})`)
@@ -65,24 +74,31 @@ let i = 0;
 
 // Save data
 function saveData() {
-    if (flags.first_read) {
-        fs.readFile('ah_comsumed.txt', (err, buf) => {
-            data.used_ah = parseFloat(buf.toString())
-            flags.first_read = 0
-        })
-    }
-    else if (flags.check_charged === 1) {
-        if (data.battery_voltage > config.battery.max_voltage - 0.5) {
-            data.used_ah = 0
-            fs.writeFile('ah_comsumed.txt', "0", (err) => {
+    try {
+        if (flags.first_read) {
+            fs.readFile('ah_consumed.txt', (err, buf) => {
+                try {
+                    capacityStamp = parseFloat(buf.toString())
+                }
+                catch { }
+                flags.first_read = 0
             })
         }
-        flags.check_charged = 2
+        else if (flags.check_charged === 1) {
+            if (data.battery_voltage > config.battery.max_voltage - 0.5) {
+                capacityStamp = 0
+            }
+            flags.check_charged = 2
+        }
+        else {
+            data.used_ah = capacityStamp + data.ah_consumed - data.ah_regen
+            fs.writeFile('ah_consumed.txt', `${data.used_ah}`, (err) => {
+            })
+        }
     }
-    else {
-        data.used_ah = data.used_ah + data.ah_consumed - data.ah_regen
-        fs.writeFile('ah_comsumed.txt', `${data.used_ah}`, (err) => {
-        })
+    catch {
+        capacityStamp = 0
+        flags.first_read = 0
     }
 }
 

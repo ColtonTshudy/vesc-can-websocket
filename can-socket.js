@@ -121,7 +121,7 @@ canHandler = (socket) => {
                 break;
             case p5Addr:
                 tachometer_erpm = ((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3])
-                data['tachometer'] = tachometer_erpm / (config['motor']['poles'] * 2) //not sure why /2 is needed but it is
+                data['tachometer'] = tachometer_erpm / (Math.pow(config['motor']['poles'], 2)) //not sure why I need to square this
                 data['battery_voltage'] = ((buf[4] << 8) + buf[5]) / 10
                 data['odometer'] = miles(data['tachometer'])
 

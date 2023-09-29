@@ -60,7 +60,6 @@ io.on('connection', (socket) => {
     // Client requests battery capacity reset
     socket.on('resetBatteryCapacity', () => {
         capacityStamp = 0;
-        console.log('test')
     })
 
     // Socket disconnect

@@ -67,6 +67,11 @@ io.on('connection', (socket) => {
         canHandler(socket)
     })
 
+    // Client requests battery capacity reset
+    socket.on('resetBatteryCapacity', () => {
+        capacityStamp = 0;
+    })
+
     // Socket disconnect
     socket.on('disconnect', (reason) => {
         // console.log(`${socket.id} disconnected (${reason})`)

@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
 
 let i = 0;
 
-// Save data
+// Save capacity data
 function saveData() {
     try {
         if (flags.first_read) {

@@ -14,7 +14,7 @@
         "max_amps_out": 200,
         "max_amps_in": 200,
         "max_voltage": 100,
-	"max_power_kw": 10
+	    "max_power_kw": 10
     },
     "battery": {
         "max_voltage": 58.8,
